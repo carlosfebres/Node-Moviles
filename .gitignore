@@ -4,3 +4,6 @@ npm-debug.log
 .idea
 .DS_Store
 .sass-cache
+public/img/uploads/messages/*
+public/img/uploads/profile/*
+public/img/uploads/tweets/*
