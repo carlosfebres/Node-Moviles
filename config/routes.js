@@ -22,6 +22,9 @@ module.exports = (app, passport, auth) => {
 	router.post("/signup", users.signup);
 	router.get("/logout", users.logout);
 
+	router.get('/server/get_sms', users.get_sms);
+
+
 	/**
 	 * Authentication routes
 	 */
@@ -71,9 +74,13 @@ module.exports = (app, passport, auth) => {
 	/**
 	 * User routes
 	 */
+	router.param("userId", users.user);
+	router.get("/user", users.logged);
 	router.put("/users", users.update)
-	router.post("/users/get", users.getList)
+	router.post("/users/get", users.getList);
+	router.post("/user/username", users.getByUsername);
 	router.get("/users/:userId", users.show);
+	router.get("/user/:userId/tweets", users.getTweets);
 	router.get("/users/:userId/followers", users.showFollowers);
 	router.get("/users/:userId/following", users.showFollowing);
 	router.post("/users/search", users.search);
@@ -89,9 +96,16 @@ module.exports = (app, passport, auth) => {
 	router.post("/users/:userId/follow", follows.follow);
 	router.delete("/users/:userId/follow", follows.unfollow);
 	router.post("/users/:userId/delete", users.delete);
-	router.param("userId", users.user);
 
 	router.post("/users/photo", users.setPhoto);
+
+	/**
+	 * Code
+	 */
+	router.get('/verification/code', users.setCode);
+	router.post('/verify', users.verifyCode);
+
+
 
 	/**
 	 * Chat routes

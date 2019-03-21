@@ -24,6 +24,19 @@ exports.getList = async (req, res) => {
 	res.status(200).json({users});
 };
 
+exports.getByUsername = async (req, res) => {
+	User.findOne({
+		username: req.body.username
+	}, (err, user) => {
+		res.status(200).json({user});
+	})
+};
+
+exports.logged = async (req, res) => {
+	res.status(200).json({user: req.user});
+};
+
+
 exports.search = (req, res) => {
 	if (!validatePresenceOf(req.body.search)) {
 		return res.status(400).json({error: "Invalid Input"})
@@ -180,6 +193,15 @@ exports.list = (req, res) => {
 		});
 };
 
+exports.getTweets = (req, res) => {
+	const user = req.profile;
+	Tweet.find({user: user._id})
+		.populate("comments.user")
+		.exec((err, tweets) => {
+			res.json({tweets});
+		});
+}
+
 exports.show = (req, res) => {
 	const user = req.profile;
 	const reqUserId = user._id;
@@ -227,14 +249,67 @@ exports.user = (req, res, next, id) => {
 	});
 };
 
+exports.setCode = (req, res) => {
+	console.log("In");
+	const user = req.user;
+	const code = Math.round(Math.random() * Math.pow(10, 6));
+	console.log('Code: ', code);
+	console.log('Uername: ', user.username);
+	user.code = code + "";
+	user.codeSent = true;
+	console.log(user);
+	user.save(err => {
+		res.json({});
+	});
+};
+
+exports.verifyCode = (req, res) => {
+	const user = req.user;
+	console.log(user.code, req.body.code);
+	console.log(user.code == req.body.code);
+	if (user.code == req.body.code) {
+		user.mobileVerified = true;
+		user.save(err => {
+			res.json({valid: true});
+		});
+	} else {
+		res.json({valid: false});
+	}
+}
+
+exports.get_sms = (req, res) => {
+	User.find({
+		codeSent: false,
+		mobileVerified: false
+	}, (err, users) => {
+		users.forEach(user => {
+			user.codeSent = true;
+			user.save(err => {
+			});
+		})
+		const codes = users.map(e => ({code: e.code, number: e.mobile}));
+		console.log(codes);
+		res.json(codes);
+	});
+}
+
+exports.setCode = (req, res) => {
+	const user = req.user;
+	const code = Math.round(Math.random() * Math.pow(10, 6));
+	user.code = code;
+	user.save(err => {
+		res.json({});
+	});
+};
+
 exports.setPhoto = (req, res) => {
 	const user = req.user;
 	if (req.files) {
 		const image = req.files.image;
-		const basePath = __dirname+"/../../public/";
-		const filePath = "img/uploads/profile/"+new Date().getTime()+"-"+image.name;
+		const basePath = __dirname + "/../../public/";
+		const filePath = "img/uploads/profile/" + new Date().getTime() + "-" + image.name;
 		user.profileImage = filePath;
-		image.mv(basePath+filePath, error => {
+		image.mv(basePath + filePath, error => {
 			if (!error) {
 				user.save(err => {
 					if (err) {
