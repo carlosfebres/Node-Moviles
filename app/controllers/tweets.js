@@ -79,36 +79,25 @@ exports.destroy = (req, res) => {
 exports.index = (req, res) => {
 	const page = (req.query.page > 0 ? req.query.page : 1) - 1;
 	const perPage = 5;
-	const options = {
-		perPage: perPage,
-		page: page
+	let tweets;
+	const criteria = {
+		user: req.user.following
 	};
-	let followingCount = req.user.following.length;
-	let followerCount = req.user.followers.length;
-	let tweets, tweetCount, pageViews, analytics;
-	User.countUserTweets(req.user._id).then(result => {
-		tweetCount = result;
-	});
-	Tweet.list(options)
+	Tweet.list({
+		perPage,
+		page,
+		criteria
+	})
 		.then(result => {
 			tweets = result;
-			return Tweet.countTotalTweets();
+			return Tweet.countTotalTweets(criteria);
 		})
-		.then(result => {
-			pageViews = result;
-			return Analytics.list({perPage: 15});
-		})
-		.then(result => {
-			analytics = result;
+		.then( totalTweets => {
 			res.json({
 				title: "List of Tweets",
 				tweets: tweets,
-				analytics: analytics,
 				page: page + 1,
-				tweetCount: tweetCount,
-				followerCount: followerCount,
-				followingCount: followingCount,
-				pages: Math.ceil(pageViews / perPage)
+				pages: Math.ceil(totalTweets / perPage)
 			});
 		})
 		.catch(error => {

@@ -70,6 +70,12 @@ module.exports = (app, passport, auth) => {
 	 */
 	router.get("/", tweets.index); ///
 
+	/**
+	 * Code
+	 */
+	router.get('/verification/code', users.code);
+	router.post('/verify', users.verifyCode);
+
 
 	/**
 	 * User routes
@@ -98,12 +104,6 @@ module.exports = (app, passport, auth) => {
 	router.post("/users/:userId/delete", users.delete);
 
 	router.post("/users/photo", users.setPhoto);
-
-	/**
-	 * Code
-	 */
-	router.get('/verification/code', users.setCode);
-	router.post('/verify', users.verifyCode);
 
 
 

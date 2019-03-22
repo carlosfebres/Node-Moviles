@@ -249,15 +249,15 @@ exports.user = (req, res, next, id) => {
 	});
 };
 
-exports.setCode = (req, res) => {
+
+
+
+exports.code = (req, res) => {
 	console.log("In");
 	const user = req.user;
 	const code = Math.round(Math.random() * Math.pow(10, 6));
-	console.log('Code: ', code);
-	console.log('Uername: ', user.username);
 	user.code = code + "";
-	user.codeSent = true;
-	console.log(user);
+	user.codeSent = false;
 	user.save(err => {
 		res.json({});
 	});

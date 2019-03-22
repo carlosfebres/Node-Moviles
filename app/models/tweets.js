@@ -155,8 +155,9 @@ TweetSchema.statics = {
 	},
 
 	// Count the total app tweets
-	countTotalTweets: function () {
-		return this.find({}).count();
+	countTotalTweets: function (criteria) {
+		criteria = criteria || {};
+		return this.find(criteria).count();
 	}
 };
 

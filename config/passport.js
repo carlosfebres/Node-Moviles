@@ -20,7 +20,6 @@ module.exports = (passport, config) => {
 
     passport.use(new BearerStrategy(
         function(token, done) {
-            console.log("Token: ",token);
             User.findOne({ token: token }, function (err, user) {
                 if (err) { return done(err); }
                 if (!user) { return done(null, false); }
