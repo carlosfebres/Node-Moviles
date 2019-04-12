@@ -114,47 +114,21 @@ TweetSchema.methods = {
 
 // ## Static Methods in the TweetSchema
 TweetSchema.statics = {
-	// Load tweets
-	load: function (id, callback) {
-		this.findOne({_id: id})
-			.populate("user", "name username provider github")
-			.populate("comments.user")
-			.exec(callback);
-	},
-	// List tweets
 	list: function (options) {
 		const criteria = options.criteria || {};
 		return this.find(criteria)
-			.populate("user", "name username provider profileImage")
-			.populate("comments.user")
+			.populate("user", "_id name username profileImage")
+			.populate("comments.user", "name username profileImage")
 			.sort({createdAt: -1})
 			.limit(options.perPage)
-			.skip(options.perPage * options.page);
+			.skip(options.perPage * options.page)
+			.exec();
 	},
-	// List tweets
-	limitedList: function (options) {
-		const criteria = options.criteria || {};
-		return this.find(criteria)
-			.populate("user", "name username")
-			.sort({createdAt: -1})
-			.limit(options.perPage)
-			.skip(options.perPage * options.page);
-	},
-	// Tweets of User
-	userTweets: function (id, callback) {
-		this.find({user: ObjectId(id)})
-			.toArray()
-			.exec(callback);
-	},
-
-	// Count the number of tweets for a specific user
 	countUserTweets: function (id, callback) {
 		return this.find({user: id})
 			.count()
 			.exec(callback);
 	},
-
-	// Count the total app tweets
 	countTotalTweets: function (criteria) {
 		criteria = criteria || {};
 		return this.find(criteria).count();

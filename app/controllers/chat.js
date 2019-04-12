@@ -1,9 +1,7 @@
-const createPagination = require("./analytics").createPagination;
 const mongoose = require("mongoose");
-const Activity = mongoose.model("Activity");
 const Chat = mongoose.model("Chat");
 const User = mongoose.model("User");
-const logger = require("../middlewares/logger");
+const Schema = mongoose.Schema;
 
 exports.chat = (req, res, next, id) => {
 	Chat.findById(id, (err, chat) => {
@@ -18,66 +16,64 @@ exports.chat = (req, res, next, id) => {
 	});
 };
 
-exports.index = (req, res) => {
-	// so basically this is going to be a list of all chats the user had till date.
-	Chat.find({
-		$or: [{user1: req.user._id}, {user2: req.user._id}]
-	}, (err, chats) => {
-		let index = 0;
-		console.log(chats);
-		chats.forEach(chat => {
-			["user1", "user2"].forEach(x => {
-				if (chat[x].toString() != req.user._id.toString()) {
-					User.findById(chat[x], (err, user) => {
-						chat.user1 = user;
-						index++;
-						if (index == chats.length) {
-							res.status(200).json({chats});
-						}
-					})
-				}
-			})
-		});
-		if (!chats.length) {
-			res.status(200).json({chats:[]});
-		}
+exports.index = async (req, res) => {
+	const chats = [];
+
+	const chats1 = await Chat.find({
+		user1: req.user._id
+	})
+		.populate("user2", "_id name username profileImage")
+		.exec();
+	chats1.forEach(chat => {
+		chats.push(formatChat(chat));
 	});
+
+	const chats2 = await Chat.find({
+		user2: req.user._id
+	})
+		.populate("user1", "_id name username profileImage")
+		.exec();
+	chats2.forEach(chat => {
+		chats.push(formatChat(chat));
+	});
+
+	res.status(200).json({chats});
+
 };
 
 exports.show = (req, res) => {
 	res.status(200).json({chat: req.chat});
 };
 
-exports.getChat = (req, res) => {
-	const options = {
-		criteria: {receiver: req.params.userid}
-	};
-	let chats;
-	Chat.list(options).then(result => {
-		chats = result;
-		res.render("chat/chat", {chats: chats});
-	});
-};
-
 exports.create = (req, res) => {
 	if (req.user._id == req.profile._id) {
 		return res.status(400).json({error: "You can't send a message to yourself"});
 	}
-	Chat.findOne({
-		$or: [
-			{user1: req.user._id, user2: req.profile._id},
-			{user1: req.profile._id, user2: req.user._id}
-		]
-	}, (err, chat) => {
-		if (!chat) {
-			// Create One
-			chat = new Chat({
-				user1: req.user._id,
-				user2: req.profile._id
+	let type, message;
+	Chat.betweenUsers(req.user._id, req.profile._id)
+		.then(chat => {
+			return new Promise(resolve => {
+				if (req.files) {
+					type = "image"
+					const image = req.files.message;
+					const basePath = __dirname + "/../../public/";
+					const filePath = "img/uploads/messages/" + new Date().getTime() + "-" + image.name;
+					image.mv(basePath + filePath, error => {
+						if (!error) {
+							resolve(chat);
+						} else {
+							res.status(500).json({error: err});
+						}
+					})
+					message = filePath;
+				} else {
+					type = "message"
+					message = req.body.message;
+					resolve(chat);
+				}
 			});
-		}
-		let type, message;
-		const cb = () => {
+		})
+		.then(chat => {
 			chat.addMessage(req.user._id, type, message);
 			chat.save(err => {
 				if (err) {
@@ -86,45 +82,37 @@ exports.create = (req, res) => {
 					res.status(201).json({chat})
 				}
 			});
-		}
-		if (req.files) {
-			type = "image"
-			const image = req.files.message;
-			const basePath = __dirname + "/../../public/";
-			const filePath = "img/uploads/messages/" + new Date().getTime() + "-" + image.name;
-			image.mv(basePath + filePath, error => {
-				if (!error) {
-					cb();
-				} else {
-					res.status(500).json({error: err});
-				}
-			})
-			message = filePath;
-		} else {
-			type = "message"
-			message = req.body.message;
-			cb();
-		}
+		});
+};
+
+// Sockets
+
+function chatFilterLastMessage(chat) {
+	chat.messages = [chat.messages[chat.messages.length - 1]];
+	return chat;
+}
+
+function formatChat(chat) {
+	return {
+		_id: chat._id,
+		user: chat.user1._id ? chat.user1 : chat.user2,
+		messages: chat.messages,
+		createdAt: chat.createdAt
+	};
+}
+
+exports.message = async (socket, io, data) => {
+	const {userId, message} = data;
+	let chat = await Chat.betweenUsers(socket.user._id, userId);
+	chat.addMessage(socket.user._id, "message", message);
+	chat.save(async () => {
+		chat = formatChat(chat);
+		const user = await User.findById(userId).select("_id name username profileImage socket").exec();
+		chat.user = user;
+		chat = chatFilterLastMessage(chat);
+
+		io.to(socket.user.socket).emit('message', {chat});
+		io.to(chat.user.socket).emit('message', {chat});
 	});
-
-
-	// logger.info("chat instance", chat);
-	// chat.save(err => {
-	// 	const activity = new Activity({
-	// 		activityStream: "sent a message to",
-	// 		activityKey: chat.id,
-	// 		receiver: req.body.receiver,
-	// 		sender: req.user.id
-	// 	});
-	// 	activity.save(err => {
-	// 		if (err) {
-	// 			logger.error(err);
-	// 			res.render("pages/500");
-	// 		}
-	// 	});
-	// 	logger.error(err);
-	// 	if (!err) {
-	// 		res.redirect(req.header("Referrer"));
-	// 	}
-	// });
+	console.log("message sent: ", message);
 };

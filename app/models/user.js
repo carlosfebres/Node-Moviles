@@ -32,11 +32,11 @@ const UserSchema = new Schema(
 		provider: String,
 		hashedPassword: String,
 		salt: String,
-		github: {},
 		followers: [{type: Schema.ObjectId, ref: "User"}],
 		following: [{type: Schema.ObjectId, ref: "User"}],
 		tweets: Number,
-		token: String
+		token: String,
+		socket: String
 	},
 	{usePushEach: true}
 );
@@ -83,7 +83,6 @@ UserSchema.path("hashedPassword").validate(function (hashedPassword) {
 }, "Password cannot be blank");
 
 UserSchema.pre("save", function (next) {
-
 	if (
 		!validatePresenceOf(this.password) &&
 		authTypes.indexOf(this.provider) === -1
@@ -112,20 +111,9 @@ UserSchema.methods = {
 };
 
 UserSchema.statics = {
-	addfollow: function (id, cb) {
-		this.findOne({_id: id})
-			.populate("followers")
-			.exec(cb);
-	},
 	countUserTweets: function (id, cb) {
 		return Tweet.find({user: id})
 			.count()
-			.exec(cb);
-	},
-	load: function (options, cb) {
-		options.select = options.select || "name username github";
-		return this.findOne(options.criteria)
-			.select(options.select)
 			.exec(cb);
 	},
 	list: function (options) {

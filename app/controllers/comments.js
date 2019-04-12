@@ -1,9 +1,7 @@
 //@ts-check
 const utils = require("../../lib/utils");
 const mongoose = require("mongoose");
-const Activity = mongoose.model("Activity");
 const Tweet = mongoose.model("Tweet");
-const logger = require("../middlewares/logger");
 
 exports.load = (req, res, next, id) => {
   const tweet = req.tweet;
@@ -14,11 +12,6 @@ exports.load = (req, res, next, id) => {
     req.comment = comment;
     next();
   });
-};
-
-exports.comment = (req, res, next, id) => {
-	req.comment_id = id;
-	next();
 };
 
 // ### Create Comment
@@ -40,9 +33,9 @@ exports.create = (req, res) => {
 };
 
 // ### Delete Comment
-exports.destroy = (req, res) => {
+exports.delete = (req, res) => {
   // delete a comment here.
-  const comment_id = req.comment_id;
+  const comment_id = req.params.comment_id;
   const tweet = req.tweet;
   for (let x in tweet.comments) {
   	if (tweet.comments[x]._id == comment_id) {

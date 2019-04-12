@@ -1,86 +1,44 @@
 const mongoose = require("mongoose");
 const User = mongoose.model("User");
-const Activity = mongoose.model("Activity");
-const logger = require("../middlewares/logger");
-
 
 exports.unfollow = (req, res) => {
-
-
+	let index;
 	const user = req.user;
-	const id = req.url.split("/")[2];
-	// push the current user in the follower list of the target user
 
-	const currentId = user.id;
+	index = req.profile.followers.indexOf(user.id);
+	if (index >= 0) {
+		req.profile.followers.splice(index, 1);
+		req.profile.save();
+	}
 
-	User.findOne({_id: currentId}, function (err, user) {
-		let index = user.following.indexOf(id);
-		if (index > -1) {
-			user.following.splice(index, 1);
-		}
-		user.save(err => {
-			res.status(201).send({});
-		});
-	});
-
-	User.findOne({_id: id}, function (err, user) {
-		let index = user.followers.indexOf(currentId);
-		if (index > -1) {
-			user.followers.splice(index,1);
-			user.save(err => {
-				if (err) {
-					logger.error(err);
-				}
-			});
-		}
-	});
+	index = user.following.indexOf(req.profile._id);
+	if (index >= 0) {
+		user.following.splice(index, 1);
+		user.save();
+	}
+	res.status(201).send({});
 
 }
 
 exports.follow = (req, res) => {
 	const user = req.user;
-	const id = req.url.split("/")[2];
-	// push the current user in the follower list of the target user
 
-	const currentId = user.id;
-
-	User.findOne({_id: id}, function (err, user) {
-		console.log(user);
-		if (user.followers.indexOf(currentId) === -1) {
-			user.followers.push(currentId);
+	if (req.profile.followers.indexOf(user.id) === -1) {
+		req.profile.followers.push(user.id);
+	}
+	req.profile.save(err => {
+		if (err) {
+			logger.error(err);
 		}
-		user.save(err => {
-			if (err) {
-				logger.error(err);
-			}
-		});
 	});
 
-	// Over here, we find the id of the user we want to follow
-	// and add the user to the following list of the current
-	// logged in user
-	User.findOne({_id: currentId}, function (err, user) {
-		if (user.following.indexOf(id) === -1) {
-			user.following.push(id);
+	if (user.following.indexOf(req.profile._id) === -1) {
+		user.following.push(req.profile._id);
+	}
+	user.save(err => {
+		if (err) {
+			res.status(400);
 		}
-		user.save(err => {
-			const activity = new Activity({
-				activityStream: "followed by",
-				activityKey: user,
-				sender: currentId,
-				receiver: user
-			});
-
-			activity.save(err => {
-				if (err) {
-					logger.error(err);
-					res.render("pages/500");
-				}
-			});
-			if (err) {
-				res.status(400);
-			}
-			res.status(201).send({});
-		});
+		res.status(201).send({});
 	});
 };

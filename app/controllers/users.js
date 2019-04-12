@@ -1,9 +1,7 @@
 const Mongoose = require("mongoose");
 const Tweet = Mongoose.model("Tweet");
 const User = Mongoose.model("User");
-const Analytics = Mongoose.model("Analytics");
-const logger = require("../middlewares/logger");
-const randtoken = require('rand-token');
+const randToken = require('rand-token');
 
 exports.signin = (req, res) => {
 };
@@ -15,7 +13,6 @@ exports.authCallback = (req, res) => {
 const validatePresenceOf = value => value && value.length;
 
 exports.getList = async (req, res) => {
-	console.log(req.body);
 	let users = [];
 	for (let x in req.body.ids) {
 		let user = await User.findById(req.body.ids[x]).exec();
@@ -25,17 +22,12 @@ exports.getList = async (req, res) => {
 };
 
 exports.getByUsername = async (req, res) => {
-	User.findOne({
-		username: req.body.username
-	}, (err, user) => {
-		res.status(200).json({user});
-	})
+	res.status(200).json({user: req.profile});
 };
 
 exports.logged = async (req, res) => {
 	res.status(200).json({user: req.user});
 };
-
 
 exports.search = (req, res) => {
 	if (!validatePresenceOf(req.body.search)) {
@@ -75,7 +67,7 @@ exports.login = (req, res) => {
 	if (!validatePresenceOf(req.body.email) || !validatePresenceOf(req.body.password)) {
 		return res.status(400).json({error: "Invalid Input"})
 	}
-	let token = randtoken.uid(64);
+	let token = randToken.uid(64);
 	User.findOne({email: req.body.email}, (error, user) => {
 		if (user) {
 			console.log(user);
@@ -95,35 +87,6 @@ exports.login = (req, res) => {
 	})
 }
 
-exports.home = (req, res) => {
-	let tweetCount, userCount, analyticsCount;
-	let options = {};
-	Analytics.list(options)
-		.then(() => {
-			return Analytics.count();
-		})
-		.then(result => {
-			analyticsCount = result;
-			return Tweet.countTotalTweets();
-		})
-		.then(result => {
-			tweetCount = result;
-			return User.countTotalUsers();
-		})
-		.then(result => {
-			userCount = result;
-			logger.info(tweetCount);
-			logger.info(userCount);
-			logger.info(tweetCount);
-			res.render("pages/login", {
-				title: "Login",
-				message: req.flash("error"),
-				userCount: userCount,
-				tweetCount: tweetCount,
-				analyticsCount: analyticsCount
-			});
-		});
-};
 
 exports.signup = (req, res) => {
 	console.log(req.body);
@@ -139,58 +102,7 @@ exports.signup = (req, res) => {
 
 exports.logout = (req, res) => {
 	req.logout();
-	res.redirect("/login");
-};
-
-exports.session = (req, res) => {
-	res.redirect("/");
-};
-
-exports.create = (req, res, next) => {
-	const user = new User(req.body);
-	user.provider = "local";
-	user
-		.save()
-		.catch(error => {
-			return res.render("pages/login", {errors: error.errors, user: user});
-		})
-		.then(() => {
-			return req.login(user);
-		})
-		.then(() => {
-			return res.redirect("/");
-		})
-		.catch(error => {
-			return next(error);
-		});
-};
-
-exports.list = (req, res) => {
-	const page = (req.query.page > 0 ? req.query.page : 1) - 1;
-	const perPage = 5;
-	const options = {
-		perPage: perPage,
-		page: page,
-		criteria: {github: {$exists: true}}
-	};
-	let users, count;
-	User.list(options)
-		.then(result => {
-			users = result;
-			return User.count();
-		})
-		.then(result => {
-			count = result;
-			res.render("pages/user-list", {
-				title: "List of Users",
-				users: users,
-				page: page + 1,
-				pages: Math.ceil(count / perPage)
-			});
-		})
-		.catch(error => {
-			return res.render("pages/500", {errors: error.errors});
-		});
+	res.json({});
 };
 
 exports.getTweets = (req, res) => {
@@ -249,7 +161,18 @@ exports.user = (req, res, next, id) => {
 	});
 };
 
-
+exports.username = (req, res, next, username) => {
+	User.findOne({username: username}).exec((err, user) => {
+		if (err) {
+			return next(err);
+		}
+		if (!user) {
+			return next(new Error("failed to load user @" + username));
+		}
+		req.profile = user;
+		next();
+	});
+};
 
 
 exports.code = (req, res) => {
@@ -280,7 +203,10 @@ exports.verifyCode = (req, res) => {
 exports.get_sms = (req, res) => {
 	User.find({
 		codeSent: false,
-		mobileVerified: false
+		mobileVerified: false,
+		code: {
+			$exists: true
+		}
 	}, (err, users) => {
 		users.forEach(user => {
 			user.codeSent = true;
@@ -335,20 +261,14 @@ exports.showFollowing = (req, res) => {
 	showFollowers(req, res, "following");
 };
 
-exports.delete = (req, res) => {
-	Tweet.remove({user: req.user._id})
-		.then(() => {
-			User.findByIdAndRemove(req.user._id)
-				.then(() => {
-					return res.redirect("/login");
-				})
-				.catch(() => {
-					res.render("pages/500");
-				});
-		})
-		.catch(() => {
-			res.render("pages/500");
-		});
+exports.getByPhones = async (req, res) => {
+	const users = await User.find({
+		mobile: {
+			$in: req.body.numbers
+		}
+	}).exec();
+
+	res.status(200).json({users});
 };
 
 function showFollowers(req, res, type) {

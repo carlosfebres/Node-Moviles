@@ -18,9 +18,32 @@ const ChatSchema = new Schema(
 	{usePushEach: true}
 );
 
+ChatSchema.statics = {
+	betweenUsers: function (from, to) {
+		return new Promise((resolve, reject) => {
+			this.findOne({
+				$or: [
+					{user1: from, user2: to},
+					{user1: to, user2: from}
+				]
+			}, (err, chat) => {
+				if (err) {
+					console.log(err);
+					reject(err);
+				}
+				if (!chat) {
+					chat = new this({
+						user1: from,
+						user2: to
+					});
+				}
+				resolve(chat);
+			});
+		});
+	}
+};
 
 ChatSchema.methods = {
-
 	addMessage: function (user, type, message) {
 		this.messages.push({
 			type: type,
@@ -28,21 +51,6 @@ ChatSchema.methods = {
 			sentBy: user
 		});
 	}
-	// load: function (options, cb) {
-	// 	options.select = options.select || "message sender receiver createdAt";
-	// 	return this.findOne(options.criteria)
-	// 		.select(options.select)
-	// 		.exec(cb);
-	// },
-	// list: function (options) {
-	// 	const criteria = options.criteria || {};
-	// 	return this.find(criteria)
-	// 		.populate("sender", "name username github")
-	// 		.populate("receiver", "name username github")
-	// 		.sort({createdAt: -1})
-	// 		.limit(options.perPage)
-	// 		.skip(options.perPage * options.page);
-	// }
 };
 
 mongoose.model("Chat", ChatSchema);
